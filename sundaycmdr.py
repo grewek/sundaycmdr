@@ -1,36 +1,54 @@
 #!/usr/bin/env python3
 import os
+from enum import Enum,IntEnum
+from operator import itemgetter, attrgetter
 
 import curses
 from curses import wrapper
 
+class PathType(Enum):
+    Relative=0,
+    Absolute=1,
+
+class Direction(IntEnum):
+    Inside=0,
+    Outside=1,
+
+class FileType(IntEnum):
+    Directory=0,
+    File=1,
+    Link=2, #TODO: This is for much later
+
 class Directory:
-    def __init__(self, path):
+    def __init__(self, path, prev=None):
+        self.prev = prev
         self.path = path
         
-        self.files = []
-        
-        self.hiddenFolders = []
-        self.folders = []
+        self.content = []
         
         expanded = os.path.expanduser(path)
         fileListing = os.listdir(expanded)
         
-        for file in fileListing:
+        for i, file in enumerate(fileListing):
             targetPath = expanded + "/" + file
             if os.path.isdir(targetPath):
-                if len(file) > 1 and file[0] == '.':
-                    self.hiddenFolders.append(file)
-                else:
-                    self.folders.append(file)
+                self.content.append((file, FileType.Directory))
             else:
-                self.files.append(file)
+                self.content.append((file, FileType.File))
+        
+        list.sort(self.content, key=itemgetter(0))
+        list.sort(self.content, key=itemgetter(1))
 
+    def FolderFromSelectionIndex(self, selectionIndex):
+        if self.content[selectionIndex][1] == FileType.Directory:
+            return self.path + "/" + self.content[selectionIndex][0]
+
+        return None
     def DirectoryLength(self):
-        return len(self.files) + len(self.hiddenFolders) + len(self.folders)
+        return len(self.content) 
 
     def GenerateListing(self):
-        return self.hiddenFolders + self.folders + self.files
+        return self.content
      
 class View:
     def __init__(self, directory, width, height, startY=0, startX=0):
@@ -56,44 +74,61 @@ class View:
         if self.selectionIndex > self.height and distanceToEnd <= 0:
             self.selectionIndex = self.cwd.DirectoryLength() - 1
 
-            
+    def HandleChangeDirectory(self, mode, direction):
+        if mode.Relative:
+            if direction == Direction.Inside:
+                nextDirectory = self.cwd.FolderFromSelectionIndex(self.selectionIndex)
+                prevPath = self.cwd.path
+                if nextDirectory is None:
+                    return
+
+                self.cwd = Directory(nextDirectory, prevPath)
+                self.selectionIndex = 0
+            elif direction == Direction.Outside:
+                if self.cwd.prev is None:
+                    return
+                
+                self.cwd = Directory(self.cwd.prev)
+                self.selectionIndex = 0
+        elif mode.Absolute:
+            pass
+        else:
+            pass #TODO: Read the docs about the enum type
+
     def HandleKeyEvents(self, pressed_key):
         if pressed_key == 'j':
             self.selectionIndex += 1
         elif pressed_key == 'k':
-            self.selectionIndex -= 1  
+            self.selectionIndex -= 1
+        elif pressed_key == 'i':
+            self.HandleChangeDirectory(PathType.Relative, Direction.Inside) #Change the current directory of this view into the selected folder.
+        elif pressed_key == 'o':
+            self.HandleChangeDirectory(PathType.Relative, Direction.Outside) #Change cwd to the previous directory in the filetree.
 
     def CalculateFileSliceRange(self):
         #NOTE: Change the divisior in the minIndex to get a different turnaround point
         self.minIndex = max(0, self.selectionIndex - int(self.height/2)) 
         self.maxIndex = self.minIndex + self.height
     
+    #TODO: This should be really part of the Directory Class
     def FormatFileType(self, record):
-        filename = record
+        (fname, ftype) = record
 
-        if ftype:
-            return "<{}>".format(filename)
-        return "{}".format(filename)
+        if ftype == FileType.Directory:
+            return "<{}>".format(fname)
+        return "{}".format(fname)
         
     def Update(self):
         self.window.clear()
         self.ValidateSelectionIndex()
         self.CalculateFileSliceRange()
 
-        for i, file in enumerate(self.cwd.GenerateListing()[self.minIndex:self.maxIndex]):
+        for i, record in enumerate(self.cwd.GenerateListing()[self.minIndex:self.maxIndex]):
             if i + self.minIndex == self.selectionIndex:
                 curses.start_color()
-                self.window.addstr(i, 0, "{} {}".format(i + self.minIndex, file), curses.color_pair(curses.COLOR_RED))
+                self.window.addstr(i, 0, "{} {}".format(i + self.minIndex, self.FormatFileType(record)), curses.color_pair(curses.COLOR_RED))
             else:
-                self.window.addstr(i, 0, "{} {}".format(i + self.minIndex,file))
-
-        #for i, file in enumerate(self.fileList[self.minIndex:self.maxIndex]):
-        #    if i + self.minIndex == self.selectionIndex:
-        #        curses.start_color()
-        #        self.window.addstr(i, 0, "{} {}".format(i + self.minIndex, self.FormatFileType(file)), curses.color_pair(curses.COLOR_RED))
-        #    else:
-        #        self.window.addstr(i, 0, "{} {}".format(i + self.minIndex, self.FormatFileType(file)))
-
+                self.window.addstr(i, 0, "{} {}".format(i + self.minIndex, self.FormatFileType(record)))
 
     def Draw(self):
         self.window.refresh()
@@ -125,11 +160,6 @@ def main(stdscr):
     splitRatio = .5
     viewWidth = int(winWidth * splitRatio)
 
-
-    #basePath = os.path.expanduser('~')
-    #fileNames = ReadAllFilesInHomeDirectory()
-    #fileRecords = DetermineFileType(basePath, fileNames)
-
     testDirectory = Directory('~')
     
     views = [View(testDirectory, viewWidth, winHeight),
@@ -158,10 +188,6 @@ def main(stdscr):
             selectedView = 0 #Change the cursor to the left view pane
         elif pressed_key == 'l':
             selectedView = 1 #Change the cursor to the right view pane
-        elif pressed_key == 'u':
-            pass #TODO: Go up in the directory tree
-        elif pressed_key == 'i':
-            pass #TODO: Go into the currently selected directory we will handle this next :)
     return
 
 
