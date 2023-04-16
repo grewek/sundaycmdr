@@ -3,14 +3,13 @@ A splitview File Explorer that runs in the Terminal.
 
 ## Usage
 Clone the Repository and make the file executable:
+
 ``
 
-git clone https://github.com/grewek/sundaycmdr.git
-
-cd sundaycmdr
-
-chmod +x sundaycmdr.py
-
+    git clone https://github.com/grewek/sundaycmdr.git
+    cd sundaycmdr
+    chmod +x sundaycmdr.py
+    
 ``
 
 Then just type `./sundaycmdr` to run the Application.
