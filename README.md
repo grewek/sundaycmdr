@@ -1,16 +1,18 @@
 # Sunday Commander
 A splitview File Explorer that runs in the Terminal.
 
+__Warning__ The screen can at sometimes flicker heavily this seems to be an issue with how i am handling the refresh with the curses lib. So if you are a person with epilepsy please be very careful in the usage of this application. on cursor movement the terminal can flicker very rapidly.
+
 ## Usage
 Clone the Repository and make the file executable:
 
-``
+`$ git clone https://github.com/grewek/sundaycmdr.git`
 
-    git clone https://github.com/grewek/sundaycmdr.git
-    cd sundaycmdr
-    chmod +x sundaycmdr.py
-    
-``
+`$ cd sundaycmdr`
+
+`$ chmod +x sundaycmdr.py`
+   
+
 
 Then just type `./sundaycmdr` to run the Application.
 

@@ -140,23 +140,6 @@ class View:
     def Draw(self):
         self.window.refresh()
     
-def ReadAllFilesInHomeDirectory():
-    #TODO: Add argument for different folders
-    #TODO: We need this to work with every folder passed not just the homefolder..
-    examplePath = os.path.expanduser('~')
-    return os.listdir(examplePath)
-
-def DetermineFileType(basePath, files):
-    result = []
-    for file in files:
-        targetPath = basePath + "/" + file
-        if os.path.isdir(targetPath):
-            result.append((file, True))
-        else:
-            result.append((file, False))
-
-    return result
-    
     
 def main(stdscr):
     stdscr.clear()
