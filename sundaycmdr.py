@@ -23,18 +23,22 @@ class Directory:
     def __init__(self, path, prev=None):
         self.prev = prev
         self.path = path
+        self.longestFilename = 0
         
         self.content = []
         
         expanded = os.path.expanduser(path)
         fileListing = os.listdir(expanded)
         
-        for i, file in enumerate(fileListing):
-            targetPath = expanded + "/" + file
-            if os.path.isdir(targetPath):
-                self.content.append((file, FileType.Directory))
-            else:
-                self.content.append((file, FileType.File))
+        for i, filename in enumerate(fileListing):
+            targetPath = expanded + "/" + filename
+            filetype = FileType.Directory
+            if not os.path.isdir(targetPath):
+                filetype = FileType.File
+            filenameLength = len(filename)
+            if filenameLength > self.longestFilename:
+                self.longestFilename = filenameLength
+            self.content.append((filename, filetype, os.stat(targetPath).st_size))
         
         list.sort(self.content, key=itemgetter(0))
         list.sort(self.content, key=itemgetter(1))
@@ -67,18 +71,18 @@ class View:
         self.startX = startX
 
     def ValidateSelectionIndex(self):
-        if self.selectionIndex - 1 < 0:
+        if self.selectionIndex < 0:
             self.selectionIndex = 0
 
         distanceToEnd = self.cwd.DirectoryLength() - self.selectionIndex
-        if self.selectionIndex > self.height and distanceToEnd <= 0:
+        if distanceToEnd <= 0:
             self.selectionIndex = self.cwd.DirectoryLength() - 1
 
     def HandleChangeDirectory(self, mode, direction):
-        if mode.Relative:
+        if mode == PathType.Relative:
             if direction == Direction.Inside:
                 nextDirectory = self.cwd.FolderFromSelectionIndex(self.selectionIndex)
-                prevPath = self.cwd.path
+                prevPath = self.cwd
                 if nextDirectory is None:
                     return
 
@@ -88,9 +92,9 @@ class View:
                 if self.cwd.prev is None:
                     return
                 
-                self.cwd = Directory(self.cwd.prev)
+                self.cwd = self.cwd.prev
                 self.selectionIndex = 0
-        elif mode.Absolute:
+        elif mode == PathType.Absolute:
             pass
         else:
             pass #TODO: Read the docs about the enum type
@@ -112,11 +116,12 @@ class View:
     
     #TODO: This should be really part of the Directory Class
     def FormatFileType(self, record):
-        (fname, ftype) = record
-
+        (fname, ftype, fsize) = record
+        distance = abs(len(fname) - self.cwd.longestFilename)
+        
         if ftype == FileType.Directory:
-            return "<{}>".format(fname)
-        return "{}".format(fname)
+            return "<{}>{}{}".format(fname, " " * distance, fsize)
+        return "{}{}{}".format(fname, " " * (distance + 2), fsize)
         
     def Update(self):
         self.window.clear()
@@ -126,9 +131,11 @@ class View:
         for i, record in enumerate(self.cwd.GenerateListing()[self.minIndex:self.maxIndex]):
             if i + self.minIndex == self.selectionIndex:
                 curses.start_color()
-                self.window.addstr(i, 0, "{} {}".format(i + self.minIndex, self.FormatFileType(record)), curses.color_pair(curses.COLOR_RED))
+                #TODO: Overflowing the width of the window seems to be a issue for curses so we need to find a way
+                #      to not make it crash !
+                self.window.addstr(i, 0, "{}".format(self.FormatFileType(record)), curses.color_pair(curses.COLOR_RED))
             else:
-                self.window.addstr(i, 0, "{} {}".format(i + self.minIndex, self.FormatFileType(record)))
+                self.window.addstr(i, 0, "{}".format(self.FormatFileType(record)))
 
     def Draw(self):
         self.window.refresh()
